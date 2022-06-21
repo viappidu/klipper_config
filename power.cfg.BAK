@@ -1,0 +1,120 @@
+#####################################################################
+#  Idle Timeout 
+#####################################################################
+[idle_timeout]
+gcode:
+  {% if printer.webhooks.state|lower == 'ready' %}
+    {% if printer.pause_resume.is_paused|lower == 'false' %}
+      {action_respond_info("POWER: Execute Idle Timeout")}
+      TURN_OFF_HEATERS
+      {% if printer['gcode_macro _USER_VARIABLE'].hw.relay.ena %}
+        UPDATE_DELAYED_GCODE ID=_DELAY_OCTOPUS_RELAYS_OFF DURATION=10
+      {% endif %}
+      UPDATE_DELAYED_GCODE ID=_DELAY_PSU_OFF DURATION=20
+    {% endif %}
+  {% endif %}
+# 1h timeout
+timeout: 3600
+
+#####################################################################
+#  Ramps case lights relay
+#####################################################################
+# Use a pin to switch on a relay for the Extruder heater if klipper is active
+# XYE board, UPWR_DET_PIN Connector
+[output_pin caselight_relay]
+## negative logic
+pin: !ramps:PL7
+pwm: false
+shutdown_value: 1
+value: 1
+
+#####################################################################
+#  MakerBase MKS PWC v3
+#####################################################################
+# Use a pin to switch off psu
+# XYE board, UPWR_DET_PIN Connector
+# [output_pin MKS_PWC]
+# ## negative logic
+# pin: gpio23
+# pwm: false
+# shutdown_value: 0
+# value: 0
+
+#####################################################################
+#  Safety Relay steppers
+#####################################################################
+## Use a pin to switch on a relay for the steppers WHEN NEEDED
+[output_pin steppers_relay]
+# ## negativ logic
+pin: !gpio12
+pwm: false
+shutdown_value: 0
+value: 1
+
+#####################################################################
+#  Safety Relay heater_bed
+#####################################################################
+## Use a pin to switch on a relay for the heater_bed WHEN NEEDED
+[output_pin bed_relay]
+# ## negativ logic
+pin: !gpio6
+pwm: false
+shutdown_value: 0
+value: 1
+
+#####################################################################
+# 	Macro
+#####################################################################           
+[delayed_gcode _DELAY_PSU_OFF]
+gcode:
+#  {action_respond_info("POWER: 24V PS power off")}
+#  {action_call_remote_method("set_device_power", device="psu", state="off")}
+  {action_respond_info("POWER: 24V PS power off")}
+  # SET_PIN PIN=steppers_relay VALUE=1
+  {action_call_remote_method("set_device_power", device="24v", state="off")}
+  {action_respond_info("POWER: 12V PS power off")}
+  # SET_PIN PIN=heater_bed_relay VALUE=1
+  {action_call_remote_method("set_device_power", device="12v", state="off")}
+     
+[gcode_macro _OCTOPUS_RELAYS_ON]
+description: Helper: Power on BED and Extruder power 
+gcode:
+  {%if printer['output_pin heater_bed_relay'].value == 1 %}
+    {action_respond_info("POWER: heater_bed power on")}
+    SET_PIN PIN=heater_bed_relay VALUE=0
+  {% endif %}
+  {action_call_remote_method("set_device_power", device="bed", state="on")}
+  {%if printer['output_pin steppers_relay'].value == 1 %}
+    {action_respond_info("POWER: steppers power on")}
+    SET_PIN PIN=steppers_relay VALUE=0
+  {% endif %}
+  # {action_call_remote_method("set_device_power", device="steppers", state="on")}
+            
+[delayed_gcode _DELAY_OCTOPUS_RELAYS_OFF]
+gcode:
+  {%if printer['output_pin heater_bed_relay'].value == 1 %}  
+    {action_respond_info("POWER: heater_bed power off")}
+    SET_PIN PIN=heater_bed_relay VALUE=1
+  {% endif %}
+  {action_call_remote_method("set_device_power", device="bed", state="off")}
+  {%if printer['output_pin steppers_relay'].value == 1 %}
+    {action_respond_info("POWER: steppers power off")}
+    SET_PIN PIN=steppers_relay VALUE=1
+  {% endif %}
+  # {action_call_remote_method("set_device_power", device="steppers", state="off")}
+
+[gcode_macro _SHUTDOWN_PI]
+description: Helper: Power down the rPi
+gcode: {action_call_remote_method("shutdown_machine")}
+
+[gcode_macro PRINTER_OFF]
+description: Park head and Power down the rPi
+gcode:
+  {% set user = printer['gcode_macro _USER_VARIABLE'] %}
+  _CG28 ; home if not already homed
+  G90   ; absolute positioning
+  G0 X{user.park.bed.x} Y{user.park.bed.y} Z{user.park.bed.z} F{user.speed.travel}
+  M117 PI Off in 5 sec
+  G4 P5000
+  M400
+  _SHUTDOWN_PI
