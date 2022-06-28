@@ -33,7 +33,8 @@ make clean
 make menuconfig KCONFIG_CONFIG=~/klipper_config/script/config.ramps
 make KCONFIG_CONFIG=~/klipper_config/script/config.ramps
 read -p "mcu Ramps firmware built, please check above for any errors. Press [Enter] to continue flashing, or [Ctrl+C] to abort"
-make flash FLASH_DEVICE=/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_55838323435351513021-if00
+# make flash FLASH_DEVICE=/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_55838323435351513021-if00
+make flash FLASH_DEVICE=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 #~/klipper/scripts/flash-usb.sh /dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_55838323435351513021-if00
 read -p "mcu Ramps firmware flashed, please check above for any errors. Press [Enter] to continue, or [Ctrl+C] to abort"
 echo "Finish update mcu Ramps"
